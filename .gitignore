@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+
+# auto-populated per PROJECT_BRIEF.md §13
+results/
+checkpoints/
+
+# preprocessing run outputs (regenerable from data/run_preprocessing.py)
+sample/preprocessed_run/
+sample/preprocessed_run_v2/
+sample/realistic_masks/

@@ -1,0 +1,52 @@
+# Central config: dataset paths, preprocessing hyperparams, seeds.
+# PROJECT_BRIEF.md §13.
+
+seed: 42
+
+# Target size every dataset's images/masks are resized to (width, height).
+# 352x352 matches the size most polyp-segmentation baselines in
+# models/baseline_registry.py (PraNet/UACANet/Polyp-PVT family) are
+# trained/evaluated at, so cross-model comparisons stay legible.
+image_size: [352, 352]
+
+fov_crop:
+  gray_thresh: 10
+  skip_if_coverage_above: 0.98
+  # Handles circular/octagonal endoscope vignettes, whose bounding rect spans
+  # the whole frame -- see data/preprocessing.py:crop_fov for why a plain
+  # bounding-rect crop isn't enough on its own.
+  max_inset_fraction: 0.35
+  inset_step_fraction: 0.01
+
+specular_inpaint:
+  v_thresh: 200
+  s_thresh: 60
+  inpaint_radius: 5
+  dilate_kernel_size: 5
+
+color_normalization:
+  # §7a ablation switch: frontend normalizer on vs. off, everything else held
+  # fixed. Flip to false to run the "off" arm of the ablation.
+  enabled: true
+  minkowski_p: 6.0
+
+# Dataset roots -- placeholders. Datasets are not downloaded into this repo
+# yet (Kvasir-SEG / CVC-ClinicDB / ETIS-LaribPolypDB are trained/evaluated
+# per PROJECT_BRIEF.md §2). Update these once the data is in place; folder
+# layouts below are assumed conventions and may need adjusting per the actual
+# download source -- see data/datasets.py.
+datasets:
+  kvasir_seg:
+    root: null  # TODO: update once dataset is placed, e.g. ./datasets/Kvasir-SEG
+    images_dir: images
+    masks_dir: masks
+  cvc_clinicdb:
+    root: null  # TODO: update once dataset is placed, e.g. ./datasets/CVC-ClinicDB
+    images_dir: Original
+    masks_dir: "Ground Truth"
+  etis_larib:
+    root: null  # TODO: update once dataset is placed, e.g. ./datasets/ETIS-LaribPolypDB
+    images_dir: images
+    masks_dir: masks
+  video:
+    root: null  # TODO: update once dataset is placed; case/positive-negative folders
