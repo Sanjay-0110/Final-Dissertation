@@ -49,4 +49,39 @@ datasets:
     images_dir: images
     masks_dir: masks
   video:
-    root: null  # TODO: update once dataset is placed; case/positive-negative folders
+    root: ./datasets  # Positive/negative case folders, no pixel masks (ground-truth availability unconfirmed, §2)
+    positive_dirname: Positive  # capital P on disk
+    negative_dirname: negative  # lowercase n on disk
+    manifest_path: ./data/video_manifest.csv  # output of data/prepare_video_dataset.py
+
+# Case-level train/test split for the video dataset (§2, §11: never frame-level).
+# Phase-1 pilot: classification only (no masks yet), so this doubles as the
+# per-epoch monitoring split, not a blind held-out set -- see training/train.py.
+video_split:
+  seed: 42
+  train_ratio: 0.8
+  # negative has only 3 cases: round(3*0.2)=1 test case -> 2/1 (~67/33), not
+  # exact 80/20. positive has 20 cases -> exact 16/4 (80/20).
+  min_test_cases: 1
+  min_train_cases: 1
+  frame_stride: 1  # per-case temporal subsampling; perceptual-hash dedup deferred (new dep)
+
+# Proposed architecture (PROJECT_BRIEF.md §1). This phase builds encoder+
+# classification head only (segmentation decoder comes later once Kvasir-SEG
+# is in place) -- target_max_params is the ceiling for that FUTURE full
+# system, not this phase's encoder+head alone (~265K, headroom reserved).
+model:
+  encoder:
+    base_channels: [64, 128, 256, 384, 512]  # ratio=1.0 reference widths, stem..bottleneck
+    compression_ratio: 0.6
+    compression_mode: asymmetric  # asymmetric | uniform -- §7b ablation flag
+  target_max_params: 1470000  # UNeXt reference ceiling (models/baseline_registry.py)
+
+training:
+  batch_size: 32
+  epochs: 20
+  lr: 0.0003
+  weight_decay: 0.0001
+  num_workers: 8  # matches scripts/slurm/train_job.sbatch's --cpus-per-task=8 -- keep these in sync
+  checkpoint_dir: ./checkpoints
+  results_dir: ./results

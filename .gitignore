@@ -10,3 +10,11 @@ checkpoints/
 sample/preprocessed_run/
 sample/preprocessed_run_v2/
 sample/realistic_masks/
+
+# datasets
+datasets/
+datasets1.tar
+
+# Test coding file
+check.py
+
