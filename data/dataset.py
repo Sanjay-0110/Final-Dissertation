@@ -12,6 +12,7 @@ Ground-truth masks are training/eval labels for loss/metric computation only
 
 from __future__ import annotations
 
+import random
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple, Union
 
@@ -23,6 +24,30 @@ from torch.utils.data import Dataset
 from data.preprocessing import SUPPORTED_EXTENSIONS, preprocess_image, preprocess_image_and_mask
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "configs" / "config.yaml"
+
+
+def random_dihedral_augment(image: np.ndarray, mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Applies a random combination of horizontal flip, vertical flip, and
+    90-degree rotation to an image+mask pair, identically to both (a polyp
+    photographed from a different angle/orientation is still a valid polyp
+    with no canonical "up" -- unlike, say, digit recognition, so all 8
+    dihedral-group orientations are label-preserving here).
+
+    Limited to flips + 90-degree rotations (not arbitrary angles) so the
+    transform is exact -- no interpolation artifacts and no blank border
+    padding to worry about, and the mask stays perfectly binary since no
+    resampling is involved."""
+    if random.random() < 0.5:
+        image = image[:, ::-1, ...]
+        mask = mask[:, ::-1, ...]
+    if random.random() < 0.5:
+        image = image[::-1, :, ...]
+        mask = mask[::-1, :, ...]
+    k = random.randint(0, 3)
+    if k:
+        image = np.rot90(image, k)
+        mask = np.rot90(mask, k)
+    return np.ascontiguousarray(image), np.ascontiguousarray(mask)
 
 
 def load_config(config_path: Union[str, Path, None] = None) -> dict:
@@ -69,6 +94,10 @@ class PolypSegDataset(Dataset):
         mask_filename_fn: maps an image Path to its expected mask filename.
             Defaults to an identical filename in masks_dir (Kvasir-SEG /
             CVC-ClinicDB convention) -- override for datasets that differ.
+        augment: apply random_dihedral_augment (flip/90-rotation) to each
+            image+mask pair. Only meaningful when masks_dir is set -- train
+            split only, never the val/test split (see
+            training/train_segmentation.py).
     """
 
     def __init__(
@@ -80,10 +109,12 @@ class PolypSegDataset(Dataset):
         minkowski_p: Optional[float] = None,
         config_path: Union[str, Path, None] = None,
         mask_filename_fn: Optional[Callable[[Path], str]] = None,
+        augment: bool = False,
     ):
         self.images_dir = Path(images_dir)
         self.masks_dir = Path(masks_dir) if masks_dir is not None else None
         self.mask_filename_fn = mask_filename_fn or (lambda image_path: image_path.name)
+        self.augment = augment
 
         config = load_config(config_path)
         self.size: Tuple[int, int] = tuple(size or config["image_size"])
@@ -115,6 +146,8 @@ class PolypSegDataset(Dataset):
                 fov_crop_kwargs=self.fov_crop_kwargs,
                 specular_kwargs=self.specular_kwargs,
             )
+            if self.augment:
+                image, mask = random_dihedral_augment(image, mask)
             return _to_image_tensor(image), _to_mask_tensor(mask)
 
         image = preprocess_image(

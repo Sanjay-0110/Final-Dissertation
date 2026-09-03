@@ -16,7 +16,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8                    # matches training.num_workers in configs/config.yaml -- keep these in sync
 #SBATCH --mem=32G
-#SBATCH --time=16:00:00                      # rough estimate for 20 epochs; re-check after a 1-epoch test run (gpuA max is 4-00:00:00)
+#SBATCH --time=8:00:00                       # reduced from 16h -- full 20-epoch run already finished well under that; early stopping now cuts it further (gpuA max is 4-00:00:00)
 #SBATCH --output=logs/train_%j.out
 #SBATCH --error=logs/train_%j.err
 #SBATCH --account=gpu-free                   # GPU-specific account (vs. the general hum-msc-data-sci one)

@@ -37,15 +37,15 @@ color_normalization:
 # download source -- see data/datasets.py.
 datasets:
   kvasir_seg:
-    root: null  # TODO: update once dataset is placed, e.g. ./datasets/Kvasir-SEG
+    root: ./datasets/Kvasir-SEG  # 1000 images / 1000 masks confirmed present, filenames match exactly
     images_dir: images
     masks_dir: masks
   cvc_clinicdb:
-    root: null  # TODO: update once dataset is placed, e.g. ./datasets/CVC-ClinicDB
+    root: ./datasets/CVC-ClinicDB/PNG  # 612 images / 612 masks confirmed present, filenames match exactly. Using PNG (not TIF) -- also present, both complete, PNG chosen since it's already in SUPPORTED_EXTENSIONS and needs no extra handling.
     images_dir: Original
     masks_dir: "Ground Truth"
   etis_larib:
-    root: null  # TODO: update once dataset is placed, e.g. ./datasets/ETIS-LaribPolypDB
+    root: ./datasets/ETIS-LaribPolypDB  # 196 images / 196 masks confirmed present, filenames match exactly (standard dataset size)
     images_dir: images
     masks_dir: masks
   video:
@@ -64,24 +64,49 @@ video_split:
   # exact 80/20. positive has 20 cases -> exact 16/4 (80/20).
   min_test_cases: 1
   min_train_cases: 1
-  frame_stride: 1  # per-case temporal subsampling; perceptual-hash dedup deferred (new dep)
+  # Was 1 (every frame kept) -- consecutive capsule-endoscopy frames are
+  # near-duplicates, so stride=1 let the model memorize train frames and made
+  # the single-video test split noisy rather than a real generalization
+  # signal. 8 de-correlates train/test frames while still leaving thousands
+  # of frames per case. Perceptual-hash dedup remains deferred (new dep).
+  frame_stride: 8
 
-# Proposed architecture (PROJECT_BRIEF.md §1). This phase builds encoder+
-# classification head only (segmentation decoder comes later once Kvasir-SEG
-# is in place) -- target_max_params is the ceiling for that FUTURE full
-# system, not this phase's encoder+head alone (~265K, headroom reserved).
+# Proposed architecture (PROJECT_BRIEF.md §1): CompressedEncoder, shared by
+# both ProposedClassifier (phase-1 pilot head) and ProposedSegmentationModel
+# (phase-2, models/proposed_model.py) -- target_max_params is the ceiling for
+# the encoder+decoder segmentation system.
 model:
   encoder:
     base_channels: [64, 128, 256, 384, 512]  # ratio=1.0 reference widths, stem..bottleneck
     compression_ratio: 0.6
     compression_mode: asymmetric  # asymmetric | uniform -- §7b ablation flag
   target_max_params: 1470000  # UNeXt reference ceiling (models/baseline_registry.py)
+  dropout: 0.3  # applied before the classifier head, phase-1 overfitting mitigation
 
 training:
   batch_size: 32
   epochs: 20
   lr: 0.0003
-  weight_decay: 0.0001
+  weight_decay: 0.0005  # was 1e-4; bumped for the small/imbalanced phase-1 video dataset
   num_workers: 8  # matches scripts/slurm/train_job.sbatch's --cpus-per-task=8 -- keep these in sync
   checkpoint_dir: ./checkpoints
   results_dir: ./results
+  early_stop_patience: 5  # stop if test f1 hasn't improved in this many epochs
+
+# Phase-2: ProposedSegmentationModel on Kvasir-SEG (real pixel masks).
+# Kvasir-SEG has no case/video structure -- every image is independent, so
+# (unlike video_split's case-level split) a plain seeded random image-level
+# split is appropriate here -- see training/train_segmentation.py.
+segmentation_split:
+  seed: 42
+  train_ratio: 0.8
+
+segmentation_training:
+  batch_size: 16  # smaller than classification's 32 -- (B,1,352,352) mask logits + decoder activations cost more memory per sample
+  epochs: 100  # was 40 -- warm-start+augmentation run was still climbing (0.686 Dice) at epoch 40, not converged yet
+  lr: 0.0003
+  weight_decay: 0.0005
+  num_workers: 8  # keep in sync with scripts/slurm/train_seg_job.sbatch's --cpus-per-task
+  checkpoint_dir: ./checkpoints
+  results_dir: ./results
+  early_stop_patience: 15  # was 8 -- too tight for a still-improving curve; loosened so a temporary plateau doesn't cut training short again

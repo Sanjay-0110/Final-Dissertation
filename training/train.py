@@ -231,6 +231,8 @@ def main() -> None:
     history_path = results_dir / "proposed_classifier_history.csv"
     write_header = not history_path.exists()
     best_f1 = -1.0
+    epochs_since_best = 0
+    early_stop_patience = train_cfg.get("early_stop_patience")
     metrics: Optional[dict] = None
 
     with history_path.open("a", newline="", encoding="utf-8") as history_file:
@@ -254,7 +256,13 @@ def main() -> None:
 
             if metrics["f1"] > best_f1:
                 best_f1 = metrics["f1"]
+                epochs_since_best = 0
                 save_checkpoint(model, optimizer, epoch, metrics, config, checkpoint_dir / "proposed_classifier_best.pt")
+            else:
+                epochs_since_best += 1
+                if early_stop_patience is not None and epochs_since_best >= early_stop_patience:
+                    print(f"Early stopping at epoch {epoch + 1} (no test F1 improvement in {early_stop_patience} epochs)")
+                    break
 
     if metrics is not None:
         save_checkpoint(model, optimizer, epochs - 1, metrics, config, checkpoint_dir / "proposed_classifier_last.pt")

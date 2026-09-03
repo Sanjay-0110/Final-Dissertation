@@ -140,13 +140,102 @@ class ProposedClassifier(nn.Module):
             compression_ratio=encoder_cfg["compression_ratio"],
             compression_mode=encoder_cfg["compression_mode"],
         )
+        # Phase-1 overfitting mitigation (small video dataset): dropped before
+        # the segmentation decoder is attached, since decoder feature maps
+        # need dropout-free skip connections -- this only regularizes the
+        # classification head.
+        dropout_p = config["model"].get("dropout", 0.0)
+        self.dropout = nn.Dropout(p=dropout_p)
         self.classifier_head = nn.Linear(self.encoder.out_channels[-1], 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Returns raw logits, shape (B, 1) -- pair with BCEWithLogitsLoss."""
         features = self.encoder(x)
         pooled = F.adaptive_avg_pool2d(features[-1], 1).flatten(1)
+        pooled = self.dropout(pooled)
         return self.classifier_head(pooled)
+
+
+class DecoderBlock(nn.Module):
+    """One decoder stage: parameter-free 2x bilinear upsample, concat with
+    the matching-resolution encoder skip connection, then two
+    depthwise-separable conv blocks (fuse + refine). Kept compressed, not
+    dense, because the concatenated channel counts here (upsampled input +
+    skip) are large enough that dense 3x3 convs would blow well past the
+    1.47M param ceiling by themselves -- mirrors the encoder's middle-stage
+    compression philosophy (ARCHITECTURE.md)."""
+
+    def __init__(self, in_channels: int, skip_channels: int, out_channels: int):
+        super().__init__()
+        self.upsample = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)
+        self.fuse = depthwise_separable_block(in_channels + skip_channels, out_channels)
+        self.refine = depthwise_separable_block(out_channels, out_channels)
+
+    def forward(self, x: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
+        x = self.upsample(x)
+        x = torch.cat([x, skip], dim=1)
+        x = self.fuse(x)
+        return self.refine(x)
+
+
+class SegmentationDecoder(nn.Module):
+    """Mirrors CompressedEncoder's 5 stages in reverse: consumes [f0..f4]
+    and reconstructs a full-resolution (matches input H/W) single-channel
+    mask logit map. Built directly from encoder.out_channels, so it always
+    matches whatever channel plan the paired encoder used (any
+    compression_ratio/mode) without hardcoding widths here.
+
+    176->352 final upsample + head_conv are deliberately full-capacity
+    (standard, not depthwise-separable) -- this is the layer producing the
+    final per-pixel decision, same "dense at the decision-relevant end"
+    argument as the encoder's bottleneck."""
+
+    def __init__(self, encoder_channels: Sequence[int]):
+        super().__init__()
+        c0, c1, c2, c3, c4 = encoder_channels
+        self.dec3 = DecoderBlock(c4, c3, c3)  # 11px -> 22px
+        self.dec2 = DecoderBlock(c3, c2, c2)  # 22px -> 44px
+        self.dec1 = DecoderBlock(c2, c1, c1)  # 44px -> 88px
+        self.dec0 = DecoderBlock(c1, c0, c0)  # 88px -> 176px
+
+        self.head_upsample = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)  # 176px -> 352px
+        self.head_conv = standard_conv_block(c0, c0 // 2, kernel_size=3)
+        self.head_out = nn.Conv2d(c0 // 2, 1, kernel_size=1)
+
+    def forward(self, features: List[torch.Tensor]) -> torch.Tensor:
+        f0, f1, f2, f3, f4 = features
+        x = self.dec3(f4, f3)
+        x = self.dec2(x, f2)
+        x = self.dec1(x, f1)
+        x = self.dec0(x, f0)
+        x = self.head_upsample(x)
+        x = self.head_conv(x)
+        return self.head_out(x)  # (B, 1, H, W) raw logits
+
+
+class ProposedSegmentationModel(nn.Module):
+    """CompressedEncoder + SegmentationDecoder -- phase-2 deliverable
+    (PROJECT_BRIEF.md §1/§5), trained on real pixel masks (Kvasir-SEG) rather
+    than the video dataset's case-level labels. Reuses the exact same
+    backbone as ProposedClassifier; the two heads are not trained jointly in
+    this project -- classification was Phase 1's mask-less pilot, this is
+    the actual dissertation deliverable."""
+
+    def __init__(self, config: dict):
+        super().__init__()
+        encoder_cfg = config["model"]["encoder"]
+        self.encoder = CompressedEncoder(
+            base_channels=encoder_cfg["base_channels"],
+            compression_ratio=encoder_cfg["compression_ratio"],
+            compression_mode=encoder_cfg["compression_mode"],
+        )
+        self.decoder = SegmentationDecoder(self.encoder.out_channels)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Returns raw mask logits, shape (B, 1, H, W) -- pair with
+        training/losses.py's DiceBCELoss."""
+        features = self.encoder(x)
+        return self.decoder(features)
 
 
 def count_parameters(module: nn.Module) -> int:
@@ -172,3 +261,11 @@ if __name__ == "__main__":
     dummy = torch.randn(2, 3, height, width)
     out = model(dummy)
     print(f"Forward pass output shape: {tuple(out.shape)} (expected (2, 1))")
+
+    print()
+    seg_model = ProposedSegmentationModel(config)
+    seg_total_params = count_parameters(seg_model)
+    print(f"ProposedSegmentationModel total params: {seg_total_params:,}")
+    print(f"Headroom remaining vs. ceiling: {target - seg_total_params:,} ({(target - seg_total_params) / target:.0%})")
+    seg_out = seg_model(dummy)
+    print(f"Segmentation forward pass output shape: {tuple(seg_out.shape)} (expected (2, 1, {height}, {width}))")

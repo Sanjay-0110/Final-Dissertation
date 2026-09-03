@@ -61,8 +61,7 @@ def standard_conv_block(
 
 def depthwise_separable_block(in_channels: int, out_channels: int, stride: int = 1) -> nn.Sequential:
     """Depthwise 3x3 (per-channel spatial filter) + pointwise 1x1 (channel
-    mixing) -- standard MobileNet-style factorization. Dominant cost term
-    becomes in*out (pointwise) instead of in*out*9 (a standard 3x3 conv)."""
+    mixing) """
     return nn.Sequential(
         nn.Conv2d(in_channels, in_channels, 3, stride=stride, padding=1, groups=in_channels, bias=False),
         nn.BatchNorm2d(in_channels),
