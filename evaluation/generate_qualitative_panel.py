@@ -3,9 +3,7 @@ evaluation/generate_qualitative_panel.py
 ===========================================
 Fig 6.2 (report): input image / ground-truth mask / predicted mask, one row
 in-domain (Kvasir-SEG val) and one row cross-domain (CVC-ClinicDB) --
-requires matplotlib (not in requirements.txt -- `pip install matplotlib`
-first if not already present in the conda env), the real trained checkpoint,
-and torch, so this runs on CSF3, not locally.
+requires the real trained checkpoint and the datasets.
 
 Usage:
     python -m evaluation.generate_qualitative_panel --checkpoint checkpoints/proposed_segmentation_best.pt --output results/fig6_2_qualitative.png

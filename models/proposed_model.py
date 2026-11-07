@@ -163,7 +163,7 @@ class DecoderBlock(nn.Module):
     dense, because the concatenated channel counts here (upsampled input +
     skip) are large enough that dense 3x3 convs would blow well past the
     1.47M param ceiling by themselves -- mirrors the encoder's middle-stage
-    compression philosophy (ARCHITECTURE.md)."""
+    compression philosophy."""
 
     def __init__(self, in_channels: int, skip_channels: int, out_channels: int):
         super().__init__()

@@ -16,18 +16,15 @@ set -euo pipefail
 ENV_NAME="polyp-domain-robust"
 PYTHON_VERSION="3.11"
 
-# TODO: confirm the exact anaconda module name available on CSF3 -- run
-#     module avail anaconda
-# on the login node and replace the line below with the real module path.
+# Module names change over time -- if this one is gone, find the current one
+# with `module avail anaconda` and update it here and in every .sbatch file.
 module load apps/binapps/anaconda3/2023.09
 
 conda create -y -n "$ENV_NAME" python="$PYTHON_VERSION"
 source activate "$ENV_NAME"
 
-# TODO: confirm the CUDA version on CSF3's GPU nodes before relying on
-# requirements.txt's torch pin (torch==2.13.0) resolving correctly here --
-# run `module avail cuda` on the login node, or check `nvidia-smi` on a GPU
-# node once allocated. If the pinned version doesn't resolve, use the
+# If requirements.txt's torch pin doesn't resolve for the GPU nodes' CUDA
+# version (check `nvidia-smi` on a GPU node), use the
 # CUDA-matched install command from pytorch.org's official selector instead
 # of a plain `pip install torch`.
 pip install --upgrade pip

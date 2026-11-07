@@ -11,6 +11,13 @@ sample/preprocessed_run/
 sample/preprocessed_run_v2/
 sample/realistic_masks/
 
+# generated from the private video dataset -- filenames must stay out of git
+data/video_manifest.csv
+
+# SLURM and test output
+logs/
+.pytest_cache/
+
 # datasets
 datasets/
 datasets1.tar

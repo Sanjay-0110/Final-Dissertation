@@ -26,7 +26,7 @@ set -euo pipefail
 
 mkdir -p logs
 
-module load apps/binapps/anaconda3/2023.09   # TODO: match this to env_setup.sh's module line
+module load apps/binapps/anaconda3/2023.09
 source activate polyp-domain-robust
 
 cd "$SLURM_SUBMIT_DIR"

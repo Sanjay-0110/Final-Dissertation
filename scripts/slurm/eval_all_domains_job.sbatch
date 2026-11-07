@@ -3,12 +3,13 @@
 # ============================================
 # CSF3 GPU jobscript: evaluates one checkpoint (inference only, no training)
 # on all three datasets -- Kvasir-SEG (in-domain), CVC-ClinicDB and
-# ETIS-LaribPolypDB (both cross-domain). Generic/reusable -- edit CHECKPOINT
-# below to point at whichever checkpoint you want fully evaluated.
+# ETIS-LaribPolypDB (both cross-domain). Generic/reusable -- pass the
+# checkpoint with CHECKPOINT=<path> (see below).
 # CSF4/ALAN has NO GPUs -- this MUST run on CSF3, never CSF4.
 #
 # Submit with (from the repo root):
 #     sbatch scripts/slurm/eval_all_domains_job.sbatch
+#     CHECKPOINT=checkpoints/proposed_segmentation_no_color_norm_best.pt sbatch scripts/slurm/eval_all_domains_job.sbatch
 
 #SBATCH --job-name=polyp-eval-all
 #SBATCH --partition=gpuA
@@ -24,13 +25,12 @@ set -euo pipefail
 
 mkdir -p logs
 
-module load apps/binapps/anaconda3/2023.09   # TODO: match this to env_setup.sh's module line
+module load apps/binapps/anaconda3/2023.09
 source activate polyp-domain-robust
 
 cd "$SLURM_SUBMIT_DIR"
 
-# EDIT THIS before each submission to point at the checkpoint you want evaluated:
-CHECKPOINT=checkpoints/proposed_segmentation_best.pt
+CHECKPOINT="${CHECKPOINT:-checkpoints/proposed_segmentation_best.pt}"
 
 echo "=== Checkpoint: $CHECKPOINT ==="
 echo "=== In-domain: Kvasir-SEG ==="

@@ -181,7 +181,9 @@ def build_manifest(
         frames = apply_frame_stride(case.frame_paths, frame_stride)
         for frame_path in frames:
             rows.append({
-                "image_path": str(frame_path.resolve()),
+                # Not resolved to absolute: the manifest must work on any machine
+                # when commands are run from the repo root.
+                "image_path": frame_path.as_posix(),
                 "case_id": case.case_id,
                 "label": case.label,
                 "split": split,
