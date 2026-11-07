@@ -5,10 +5,9 @@ Thin per-dataset subclasses of PolypSegDataset (data/dataset.py) that supply
 each dataset's folder-naming convention, keyed off configs/config.yaml
 `datasets:` entries.
 
-ASSUMPTION (stated per PROJECT_BRIEF.md §9, since none of these datasets are
-downloaded into this repo yet): folder-naming conventions below are the
-common public-release layouts. Verify/adjust once the real data is placed --
-see the `# TODO` markers in configs/config.yaml.
+Folder-naming conventions below are the layouts used in this project (see
+the README). Other mirrors of these datasets may differ -- adjust images_dir
+and masks_dir in configs/config.yaml if so.
     - Kvasir-SEG: `images/` and `masks/`, same filename in both.
     - CVC-ClinicDB: `Original/` and `Ground Truth/`, same filename in both.
     - ETIS-LaribPolypDB: `images/` and `masks/` (naming varies by mirror;
@@ -56,8 +55,8 @@ class ETISLaribDataset(PolypSegDataset):
 
 
 class VideoFrameDataset(PolypSegDataset):
-    """External test-only, ground-truth mask availability unconfirmed (§2,
-    §12) -- masks_dir is optional and left unset by default."""
+    """Video frames have case-level labels only, no pixel masks --
+    masks_dir is optional and left unset by default."""
 
     def __init__(
         self,

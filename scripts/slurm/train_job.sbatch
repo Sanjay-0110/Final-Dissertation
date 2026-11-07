@@ -29,7 +29,7 @@ mkdir -p logs
 # loaded, so this must be repeated here even though env_setup.sh already
 # loaded it once interactively. Use the SAME module name you confirmed via
 # `module avail anaconda` and put in env_setup.sh.
-module load apps/binapps/anaconda3/2023.09   # TODO: match this to env_setup.sh's module line
+module load apps/binapps/anaconda3/2023.09
 
 # NOT `conda activate` -- only reliable on the login node interactively;
 # jobscripts must use `source activate` (§10).

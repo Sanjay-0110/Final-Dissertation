@@ -51,6 +51,10 @@ def seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+    # Same seed + same hardware/library versions => same run. Reported results
+    # predate these two lines, so a re-run will be close to them, not identical.
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 def get_compression_summary(config: dict) -> dict:

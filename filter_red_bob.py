@@ -17,9 +17,9 @@ By default this MOVES flagged files to a review folder rather than
 deleting them outright -- check the folder, then delete for real.
 
 Usage:
-    python filter_red_blob_frames.py /path/to/dataset
-    python filter_red_blob_frames.py /path/to/dataset --delete   # skip review, delete directly
-    python filter_red_blob_frames.py /path/to/dataset --dry-run  # just list, don't move/delete
+    python filter_red_bob.py /path/to/dataset
+    python filter_red_bob.py /path/to/dataset --delete   # skip review, delete directly
+    python filter_red_bob.py /path/to/dataset --dry-run  # just list, don't move/delete
 """
 
 import argparse
